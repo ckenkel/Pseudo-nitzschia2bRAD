@@ -1,0 +1,87 @@
+Species,Category,Ntags
+Paus,No Match,8776
+Paus,Proteobacteria,4610
+Paus,Other,26
+Paus,Eukaryote,11
+PausOther,Actinobacteria,9
+PausOther,Bacteroidetes,9
+PausOther,Bacteria Latreille et al. 1825,6
+PausOther,Acidobacteriia,1
+PausOther,Euryarchaeota,1
+Pdel,No Match,113379
+Pdel,Proteobacteria,19106
+Pdel,Other,391
+Pdel,Eukaryote,494
+PdelOther, Acidobacteriia,2
+PdelOther, Actinobacteria,218
+PdelOther, Bacteria Latreille et al. 1825,79
+PdelOther, Bacteroidetes,15
+PdelOther, Chlorobi,1
+PdelOther, Chloroflexi,1
+PdelOther, Cyanobacteria,6
+PdelOther, Deinococcus-Thermus,1
+PdelOther, Euryarchaeota,4
+PdelOther, Firmicutes,27
+PdelOther, Gemmatimonadetes,1
+PdelOther, Oomycota,2
+PdelOther, Verrucomicrobia,2
+PdelOther,Fungi,14
+PdelOther,Planctomycetales,5
+PdelOther,Prokaryotic dsDNA virus sp.,1
+PdelOther, Sym plasmid,1
+PdelOther, uncultured marine organism,6
+PdelOther, uncultured microorganism,1
+PdelOther, uncultured organism,2
+PdelOther, uncultured prokaryote,1
+PdelOther, uncultured stramenopile,1
+Ppun,No Match,422575
+Ppun,Proteobacteria,24945
+Ppun,Other,4085
+Ppun,Eukaryote,454
+PpunOther, Acidobacteriia,4
+PpunOther, Actinobacteria,685
+PpunOther, Arthropoda,32
+PpunOther, Bacteria Latreille et al. 1825,1137
+PpunOther, Bacteroidetes,1978
+PpunOther, candidate division NC10,1
+PpunOther, Chlorobi,1
+PpunOther, Chloroflexi,2
+PpunOther, Cyanobacteria,31
+PpunOther, Deinococcus-Thermus,8
+PpunOther, Euryarchaeota,4
+PpunOther, Firmicutes,110
+PpunOther, Gemmatimonadetes,3
+PpunOther, Oomycota,3
+PpunOther, Spirochaetes,1
+PpunOther, Sym plasmid,4
+PpunOther, Tenericutes,1
+PpunOther, uncultured marine microorganism HF4000_APKG1C9,1
+PpunOther, uncultured marine organism,27
+PpunOther, uncultured organism,22
+PpunOther, uncultured phage,1
+PpunOther, uncultured prokaryote,5
+PpunOther, Verrucomicrobia,1
+PpunOther,Bamfordvirae,3
+PpunOther,Fonticulaceae,2
+PpunOther,Planctomycetales,18
+Psub,No Match,342608
+Psub,Proteobacteria,23674
+Psub,Other,768
+Psub,Eukaryote,306
+PsubOther, Acidobacteriia,1
+PsubOther, Actinobacteria,144
+PsubOther, Bacteria Latreille et al. 1825,327
+PsubOther, Bacteroidetes,143
+PsubOther, Chlorobi,2
+PsubOther, Chloroflexi,6
+PsubOther, Cyanobacteria,40
+PsubOther, Deinococcus-Thermus,3
+PsubOther, Euryarchaeota,4
+PsubOther, Firmicutes,25
+PsubOther, Kiritimatiellaeota,1
+PsubOther, Synergistetes,1
+PsubOther, Verrucomicrobia,3
+PsubOther,Planctomycetales,15
+PsubOther,Marine virus AFVG_250M857,1
+PsubOther,uncultured marine organism,16
+PsubOther,uncultured organism,36
