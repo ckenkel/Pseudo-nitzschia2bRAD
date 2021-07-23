@@ -1,2 +1,41 @@
 # Pseudo-nitzschia2bRAD
 Pseudo-nitzschia spp. produces a neurotoxin, domoic acid (DA), which can cause illness in humans, commonly known as amnesic shellfish poisoning, mass-mortality of marine animals, and closure of commercial shellfish fisheries during bloom events. Understanding and forecasting these harmful algal blooms is a primary management goal; however, accurately predicting the onset and severity of Pseudo-nitzschia bloom events remains difficult, in part because the underlying drivers of bloom formation have not been fully resolved. Recent work suggests that the genetic composition of a Pseudo-nitzschia bloom may be a better predictor of toxicity than prevailing environmental conditions. Here, we test the ability of reduced representation sequencing (2b-RAD) to delineate inter and intra-species level genetic variation of Pseudo-nitzschia. We generated 2bRAD libraries from pure cultures of Pseudo-nitzschia spp. and mock community mixes. We also generated sequencing libraries from longitudinal field samples from the San Pedro Shelf. This repository contains the bioinformatic and statistical scripts necessary to re-create analyses, as well as raw input data used to generate figures. FASTQ reads for both the Mock Community Mix (SUB9673624) and Natural Sample libraries (SUB10064804) can be obtained from NCBI’s SRA under BioProject PRJNA749297. The final Pseudo-nitzschia spp. 2bRAD reference library is hosted at https://dornsife.usc.edu/labs/carlslab/data/.
+
+Files in this repository 
+-----------
+
+1. SeagrantCleanProcessingPipeline.txt: Annotated bioinformatic workflow for producing 2bRAD reference libraries (including read QC, assembly, and contaminant filtering). Custom scripts used in this analysis are listed below. To determine what each of these scripts does run them without arguments. Note that this pipeline was written for a cluster which uses a SLURM scheduler. 
+	- Perl Scripts
+	  - BcgI_extract.pl
+	  - TruncateFastq.pl
+	  - uniquerOne.pl
+	  - mergeUniq.pl
+	  - BcgI_Extract_FullTag.pl
+	  - splitFasta.pl
+	  - taxfiles.pl
+	  - TaxaOriginByBlast2.pl
+	  - expression_compiler.pl
+	  - trim2bRAD_1barcode_dedup.pl
+	  - CombineExpression.pl
+	- Shell Scripts
+	  - organize.sh
+	  - organizeRan.sh
+	  - batch.sh
+	  - batch2.sh
+	  - SortContams.sh
+	  - TagCount.sh
+	
+2. DESeq_PoritesPatch.R: Annotated R script for conducting differential gene expression analysis and KOG term enrichments
+	- Input file: AllCountsHost.txt
+	- Input file: plob_iso2kogClassNR.tab
+	- Input file: amil_iso2kogClassNR.tab
+	- Input file: MetaAnalysisFiles.RData
+	- Input file: plob_iso2gene.tab
+	
+	- Output file: hostVSDandPVALS_no_g4_deseq1_4jun_plusPC1.csv
+	- Output file: GOpatchHost.csv
+	- Output file: GObinaryHostPatch.csv
+	- Output file: VSDs_GObinaryHostPatch.csv
+
+3. For gene ontology enrichment scripts and example input files, please visit https://github.com/ckenkel/GO_MWU
+
