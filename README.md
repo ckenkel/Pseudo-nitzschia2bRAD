@@ -6,7 +6,7 @@ Files in this repository
 
 1. SeagrantCleanProcessingPipeline.txt: Annotated bioinformatic workflow for producing 2bRAD reference libraries (including read QC, assembly, and contaminant filtering). Custom scripts used in this analysis are listed below. To determine what each of these scripts does run them without arguments. Note that this pipeline was written for a cluster which uses a SLURM scheduler. 
 	- Perl Scripts
-	  - BcgI_extract.pl
+	  - BcgI_Extract.pl
 	  - TruncateFastq.pl
 	  - uniquerOne.pl
 	  - mergeUniq.pl
