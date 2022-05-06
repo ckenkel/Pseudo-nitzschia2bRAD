@@ -31,6 +31,7 @@ Files in this repository
 	- Input file: FPrate.csv
 	- Input file: Accuracy.csv
 	- Input file: NatSamLibs.csv
+	- Input file: ARISA.csv
 	- Input file: PpunCoverage.csv
 	- Input file: CMH_analysis_ByYear.csv
 	
