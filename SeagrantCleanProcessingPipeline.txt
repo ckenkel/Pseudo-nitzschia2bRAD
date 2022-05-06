@@ -1,0 +1,521 @@
+# Bioinformatic processing pipeline for 2bRAD reference library construction 
+# Written by C. Kenkel (ckenkel@usc.edu) in Summer 2020
+
+########################################
+#### Setting up your working envt ######
+
+# Download and unpack scripts in this repository and add to your path
+
+git clone ckenkel/Pseudo-nitzschia2bRAD
+
+# The following softwares will also need to be installed and in your path
+
+bowtie2
+bedtools
+fastx_toolkit
+bbmap
+
+#Download and install cd-hit
+
+git clone https://github.com/weizhongli/cdhit.git
+cd cd-hit
+make
+
+#To download and install NCBIs Blast if not available
+blast
+
+#To download and install qiime using anaconda 
+
+https://docs.qiime2.org/2020.8/install/native/ 
+
+#make sure to clear python path variables from .bashrc if present prior to using conda install or there will be numpy errors 
+
+#Download and install popoolation2
+see https://sourceforge.net/p/popoolation2/wiki/Manual/ 
+
+####################################################
+###### To assemble species reference library #########
+####################################################
+
+#TO extract tags from a previously sequenced and assembled genome for reference library construction:
+
+################### Example - Pseudo-nitzschia multistriata
+
+Downloaded on 21 May 2021 from Ensembl: To produce the genome sequence, we used an axenic offspring of two F1 siblings obtained by crossing two wild type strains isolated in the Gulf of Naples (Italy). The genome was assembled from a total of 172 million 101 bp overlapping paired end reads with ~175 bp inserts, 117 million 100 bp paired end reads with ~450 bp inserts, 72 million ~68 bp (after trimming) mate pair reads with ~1.2 KBp inserts and 5.4 million ~156 bp (after trimming) mate pair reads with ~4.5 Kbp inserts. The final size of the assembled Psuedo-nitzschia multistriata genome is 59.3 Mbp including ambiguous bases.
+
+
+#concatenated the full scaffolds, mitochondria and plastid assembly
+
+cat Psemu1_AssemblyScaffolds.fasta Psemu1_mitochondrial_scaffolds.fasta Psemu1_plastid_scaffolds.fasta > Psemu_all.fasta
+
+#ensure genomes are all UC lettering
+
+awk 'BEGIN{FS=" "}{if(!/>/){print toupper($0)}else{print $1}}' CAACVS01.fasta > Pmstri_CAACVS0_allUC.fasta
+
+#then extract BcgI sites from genome
+
+./BcgI_extract.pl Pmstri_CAACVS0_allUC.fasta bcg_Pmstri_CAACVS0_allUC.fasta
+
+#how many tags in genome?
+
+grep -c '>' bcg_Pmstri_CAACVS0_allUC.fasta
+
+#Then, add in species name and "isogroup" designation to reference
+
+cat bcg_Pmstri_CAACVS0_allUC.fasta | sed 's/>ENA|CAACVS010000/>Pmstri_/g' | sed 's/_F/_F gene=Pmstri6/g' | sed 's/_R/_R gene=Pmstri6/g' > bcg_Pmstri_CAACVS0_allUC_isogroups.fasta
+
+## Example - Pseudo-nitzschia multiseries CLN-47
+
+Downloaded on 27 April 2020 from JGI. These sequence data were produced by the US Department of Energy Joint Genome Institute https://www.jgi.doe.gov/ in collaboration with the user community. 
+PI contact: Ginger Armbrust: armbrust@ocean.washington.edu armbrust@uw.edu
+
+#concatenated the full scaffolds, mitochondria and plastid assembly
+
+cat Psemu1_AssemblyScaffolds.fasta Psemu1_mitochondrial_scaffolds.fasta Psemu1_plastid_scaffolds.fasta > Psemu_all.fasta
+
+#ensure genomes are all UC lettering
+
+awk 'BEGIN{FS=" "}{if(!/>/){print toupper($0)}else{print $1}}' Psemu_all.fasta > Psemu_allUC.fasta
+
+#then extract BcgI sites from genome
+
+./BcgI_extract.pl Psemu_allUC.fasta bcg_Psemu_allUC.fasta
+
+#how many tags in genome?
+
+grep -c '>' bcg_Psemu_allUC.fasta
+
+#Then, add in species name and "isogroup" designation to reference
+
+cat bcg_Psemu_allUC.fasta | sed 's/>sca/>Pmul_sca/g' | sed 's/_F/_F gene=Pmul5/g' | sed 's/_R/_R gene=Pmul5/g' > bcg_Psemu_allUC_isogroups.fasta
+
+##
+
+#########################
+#For construction of a de novo reference from 2bRAD sequencing of a pure (but not necessarily axenic) culture:
+
+#First, create list of all sequencing samples and move into subdirectories for processing
+
+ls -1 *.fastq  | sed "s/\.fastq//" > list
+
+cat list
+
+organize.sh list
+
+
+#Trim fastq files to retain only the RAD tag sequence
+TruncateFastq.pl -i $NAME".fastq" -s 7 -e 42 -o $NAME".trunc"
+
+#then quality filter, requiring at least q20 over 100% of the read
+cat $NAME".trunc" | fastq_quality_filter -q 20 -p 100 > $NAME".tctr"
+
+#then exclude any reads containing adaptor sequence
+bbduk.sh in=$NAME".tctr" ref=/home/rcf-proj2/cdk1/RefSeqs/adaptors.fasta k=12 overwrite=true stats=stats2.txt out=$NAME".clean2"
+
+#Then, cluster remaining reads at 100% identity
+uniquerOne.pl $NAME".clean2" > $NAME".uni2" 
+
+#require tag to appear in 1 individual to be considered 'valid'
+#move all .uni2 samples to the same directory for a given species (assuming there are replicate sequencing libraries per spp) and run the following
+mergeUniq.pl uni2 minDP=1 minInd=1 >PausMerged.uniq2
+
+#Then create fasta file of unique tags for each spp, adding in "isogroup" designation for species
+
+tail -n +2 PausMerged.uniq2 | awk '{print ">Paus_"$1" gene=Paus1\n"$2}' > Pausv1.fasta 
+
+#then, filter for bcg restriction site motif and retain only those tags containing the motif. 
+
+./BcgI_Extract_FullTag.pl Pausv1.fasta Paus.fasta
+
+#Then add "isogroup" designation back in for each species
+
+cat Paus.fasta | sed 's/F/F gene=Paus1/g' | sed 's/R/R gene=Paus1/g' > Paus_bcgIN1sam.fasta 
+
+#Repeat above command for all refs, adding in unique numeric identifier for each spp
+
+Paus = 336268
+Pdel = 133370
+Ppun = 452059
+Psub = 367356
+Pmul = 81121
+
+#IF cultures are not axenic, you will need to filter out bacterial contaminants bioinformatically 
+#filter for known contaminants based on BLAST match to NCBI nt database (downloaded on 17 June 2020)
+
+#to download blast database from NCBI
+
+update_blastdb.pl --passive --decompress nt     
+
+#then use splitFasta to reduce the size of the reference for faster parsing, recommend ~10k chunks
+
+splitFasta.pl Paus_bcgIN1sam.fasta 34
+
+
+#submit blast command for each subset as job - runs quickly, will complete in a few hours or less - e.g.
+
+for i in `ls subset*.fasta`; do echo blastn -query $i -db \/work\/01914\/ckenkel\/stampede2\/NCBI_nt_2020\/nt -evalue 0.00001 -num_threads 68 -num_descriptions 5 -num_alignments 5 -out $i.br; done > commands
+
+
+blastn -query subset1_Paus_bcgIN1sam.fasta -db /work/01914/ckenkel/stampede2/NCBI_nt_2020/nt -evalue 0.00001 -num_threads 68 -num_descriptions 5 -num_alignments 5 -out subset1_Paus_bcgIN1sam.fasta.br
+
+#Then must parse blast reports by taxa to sort reads based on no hits 
+#download taxdump files and unpack in /staging directory where subset directories are located
+
+wget ftp://ftp.ncbi.nih.gov/pub/taxonomy/taxdump.tar.gz
+tar -zxvf taxdump.tar.gz
+
+#make new 'bin' to hold id2names names2id correspondence tables
+
+mkdir bin
+
+#then, run taxfiles.pl in directory with names.dmp, nodes.dmp files (note: should run as job)
+
+taxfiles.pl
+
+#then move each subset into its own subdirectory and copy taxonomy files into each
+
+ls subset*.fasta | cut -d'_' -f 1 > list
+
+organize.sh list
+
+##### organize.sh
+#!/bin/bash
+# organizes a list of sequence files into sample-specific directories
+# input a list of sample names
+
+LIST=$1
+
+if [ "$#" -ne 1 ]
+	then
+	echo ""
+	echo "Usage: organize.sh list"
+	echo "Where"
+	echo "	list:	a list of sample names (typically the first part of each file name)"
+	echo ""
+	exit
+fi
+
+exec < "$LIST"
+while read LINE
+do
+        echo "$LINE"
+	mkdir $LINE
+	mv $LINE*.fast* $LINE
+done
+
+#####
+
+cat list | sed 's/^s/\.\/s/g' > listDir
+
+for i in `cat listDir`; do cp *.dmp $i; cp gc.prt $i; cp -r bin $i; done
+
+#Then once all taxonomy files are created and in same directory run parsing script as long job (Note, this is clunky - takes 48+ hrs to complete. Could also try to use taxonomy commands within blast to achieve this same output?)
+#modify the following and add to a job script
+TaxaOriginByBlast2.pl $NAME"_Paus_bcgIN1sam.fasta" /work/01914/ckenkel/stampede2/NCBI_nt_2020/nt /scratch/01914/ckenkel/$NAME 0.00001 kingdom false no $NAME"_Paus_bcgIN1sam.fasta.br"
+
+#then use batch.sh to serially submit jobs
+
+batch.sh job.sh list parse
+ 
+#Once job is complete, use this to summarize source of contaminants and filter contaminant tags from reference libraries.
+
+#to compile table of contaminant counts, use:
+expression_compiler.pl subset*/*.out > PausContams.txt
+#then scp to laptop and sum in R or excel to create some pie-chart visualizations
+#Trim off extra labeling using sed (see Analyses.R file)
+
+#example:
+cat Psub_bcgIN1sam.fasta.br.all.tab | sed 's/Uknown kingdom, phylum://g' | sed 's/Uknown kingdom, class://g' | sed 's/Uknown kingdom, genus://g' > Psub_bcgIN1sam.fasta.br.all.stripped.tab
+
+#then concatenate all individual subsets for filtering reference
+
+cat subset*/*br*tab > Psub_bcgIN1sam.fasta.br.all.tab
+
+#if there are empty kingdom annotations due to missing annotation, use 
+
+awk -F\t '$4==""' *.tab 
+
+#then must go and search out which tags these are to decide whether to keep or discard...
+
+
+#use list of contaminant fasta file headers to create list of contaminant seqs to remove. #Here, we retain only 'no match' and 'protist' tags - e.g. removing everything but the following
+
+grep -v 'Bacillariophyta' Paus_bcgIN1sam.fasta.br.all.tab > contams.tab
+
+#Note, you may need to make different judgement calls based on your favorite organism and what contaminants are identified
+
+wc -l contams.tab #confirm that seqs match original tabulation of total identified contaminants for focal spp
+
+#Then pull out list of clusters to remove
+
+cat contams.tab | cut -f1 > Contams2removePaus.tab
+
+#Repeat above steps if necessary, until you have a contaminants list for each reference spp  
+
+#Then, cluster reads for individual references at 91% identity (= up to 3 mismatches, or SNPs) to allow for sequence variants, retain the most abundant sequence as the reference. You will return to this file once you have created a list of 'global' contaminants to remove 
+
+#Use cd-hit, clustering allowing for up to 3 mismatches (-c 0.91); the most abundant sequence becomes reference
+
+cd-hit-est -i Paus_bcgIN1sam.fasta -o Paus_bcgIN1sam_clstr.fasta -aL 1 -aS 1 -g 1 -c 0.91 -M 0 -T 0
+
+# View teh .clstr output of the cd-hit run to determine if sequence IDs need to be truncated, if so, truncate appropriately - e.g. 
+
+head *.clstr #note that sequence names are truncated to >Psub_tag1_3_38_F... therefore
+
+cat Contams2removePaus.tab | cut -d'_' -f 1,2,3 > Contams2removePaus_trunc.tab
+
+#then concatenate all contaminant lists together to create global contaminants list by species
+
+cat Psub/Contams2remove_trunc.tab Contams2removePaus_trunc.tab Pdel/Contams2remove_trunc.tab Ppun/Contams2remove_trunc.tab > All_Contams2remove_trunc.tab
+
+#THEN cluster reads for ALL references at 91% identity and use this to identify and exclude 'global' contaminants. The rationale is that a contaminant match in another spp can be used to filter out the consensus reference for the focal species. Why? Well, with blast on these short reads, 1 SNP can be the difference between a 'no match' and a 'match' in the database. Therefore, we want to make sure highly similar seqs to any contaminants are identified and tossed to reduce the false positive rate. This must be done iteratively until all reference species have been used as the first in the clustering list. This pipeline takes advantage of cd-hit's clustering behavior which always starts at the top of the list - therefore, contaminants can be identified and the subsequent sorting script will return the reference sequence for the focal spp. In the below example, Paus is the 'focal' species bc it is listed first in the concatenate command.
+
+cat Paus_bcgIN1sam.fasta Psub/Psub_bcgIN1sam.fasta Ppun/Ppun_bcgIN1sam.fasta Pdel/Pdel_bcgIN1sam.fasta > Pall_bcgIN1sam.fasta 
+
+cd-hit-est -i Pall_bcgIN1sam.fasta -o All_bcgIN1sam_clstr.fasta -aL 1 -aS 1 -g 1 -c 0.91 -M 0 -T 0
+
+
+#this bash script will return global list of clusters to discard in Paus by returning the final reference sequence for each previously identified contaminant in the cd-hit clustered object. It's rather slow. Parallelize and run as separate jobs
+
+split -n l/15 All_Contams2remove_trunc.tab 
+
+ls x* > contamsFiles
+
+organizeRan.sh contamsFiles 
+
+#then insert the following into the job script, request 6 hours, and use batch2.sh to submit
+SortContams.sh $NAME /scratch/ckenkel/Seagrant/All_bcgIN1sam_clstr.fasta.clstr /scratch/ckenkel/Seagrant/All_bcgIN1sam_clstr.fasta > Contams2remove_global.tab 
+#
+
+batch2.sh job.sh contamsFiles filter
+
+#when complete, reconcatenate all tabulations from sub-directories
+
+cat x*/Contams2remove_global.tab > Contams2remove_global.tab 
+
+#Sanity check - make sure the line numbers match up for original contams2remove file
+
+wc -l All_Contams2remove_trunc.tab
+
+wc -l Contams2remove_global.tab
+
+# BUT also beware that this list *could* contain duplicates if 2 or more seqs from a single cluster were identified as contaminants - use sort -u filter if this is the case
+
+grep 'Paus' Contams2remove_global.tab | sort -u > Contams2remove_global_Paus.tab
+
+#Now, go back and re-do to create 'Contams2remove_global' files for all species, just concatenating in a different order to make each spp appear first in the global list, then .clstr files will be rooted with the first focal spp. and we can just do the same steps to remove the 'universal' contaminants (to the best of our knowledge). Below, Pdel is now the focal species. 
+
+cat Pdel/Pdel_bcgIN1sam.fasta Paus_bcgIN1sam.fasta Psub/Psub_bcgIN1sam.fasta Ppun/Ppun_bcgIN1sam.fasta  > Pall_bcgIN1sam.fasta
+
+cd-hit-est -i Pall_bcgIN1sam.fasta -o All_bcgIN1sam_clstr.fasta -aL 1 -aS 1 -g 1 -c 0.91 -M 0 -T 0
+
+batch2.sh job.sh contamsFiles filter #Pdel
+
+cat x*/Contams2remove_global.tab > Contams2remove_global.tab
+
+wc -l Contams2remove_global.tab
+
+grep 'Pdel' Contams2remove_global.tab | sort -u > Contams2remove_global_Pdel.tab
+
+wc -l Contams2remove_global_Pdel.tab
+
+#Once you have identified all contaminant lists we will use qiime to remove these from each reference
+#nano into Contams2remove file and add 
+
+featureid
+
+#to the top of the file as the column header (this is needed for qiime)
+
+#Then once contaminant lists are created, you will need to remove these contaminants from the final *clustered* fasta reference that you originally created for each species in isolation. This then becomes the real 'clean' species reference you will use for all downstream mapping steps
+
+#use qiime2 for filtering contaminant contigs from final fasta reference
+
+source ~/.condainit
+
+conda activate /project/ckenkel_26/condaEnvs/qiime2-2020.8
+
+qiime tools import --input-path Pdel_bcgIN1sam_clstr.fasta --output-path clstr --type FeatureData[Sequence]
+
+qiime feature-table filter-seqs --i-data clstr.qza --m-metadata-file Contams2remove_global_Pdel.tab --o-filtered-data contams.qza
+
+qiime feature-table filter-seqs --i-data clstr.qza --m-metadata-file Contams2remove_global_Pdel.tab --p-exclude-ids --o-filtered-data goods.qza
+
+qiime tools export --input-path contams.qza --output-path contams 
+
+qiime tools export --input-path goods.qza --output-path goods 
+
+#dbl check that numbers match original import
+
+grep -c '>' contams/dna-sequences.fasta 
+
+grep -c '>' goods/dna-sequences.fasta  
+
+#then for contams files, rename headers to be "Contams" 
+
+cat contams/dna-sequences.fasta | sed 's/>Pdel/>PdContam/g' | sed 's/R/R gene=Contam/g' | sed 's/F/F gene=Contam/g' > Pdel_Contams_Final.fasta
+
+#and bring goods back to 'final' reference file
+
+cat goods/dna-sequences.fasta | sed 's/R/R gene=Pdel2/g' | sed 's/F/F gene=Pdel2/g' > Pdel_bcgIN1sam_clstr_NoContams.fasta
+
+# then repeat for all references. NOTE that .qza and subfolders should be deleted prior to rerun as rewriting is a problem
+
+rm *.qza
+rm -rf goods
+rm -rf contams
+
+#####
+
+#Finally, make the global reference.
+
+cat Paus/Paus_bcgIN1sam_clstr_NoContams.fasta Pdel/Pdel_bcgIN1sam_clstr_NoContams.fasta Ppun/Ppun_bcgIN1sam_clstr_NoContams.fasta Psub/Psub_bcgIN1sam_clstr_NoContams.fasta Pmul/bcg_Psemu_allUC_isogroups.fasta Pmstri/bcg_Pmstri_CAACVS0_allUC_isogroups.fasta Paus/Paus_Contams_Final.fasta Pdel/Pdel_Contams_Final.fasta Ppun/Ppun_Contams_Final.fasta Psub/Psub_Contams_Final.fasta > PNmaster_bcgIn1sam_clstr_ContamsSep.fasta2
+
+#assemble seq2iso file (correspondence table between reads and their spp origin)
+
+cat PNmaster_bcgIn1sam_clstr_ContamsSep.fasta | grep '>' | sed 's/>//g' |  sed 's/ gene=/\t/g' > PNmaster_seq2iso_clstr_ContamsSep.tab
+
+#Build bowtie2 reference for isogrouped concatenated reference
+bowtie2-build PNmaster_bcgIn1sam_clstr_ContamsSep.fasta PNmaster_bcgIn1sam_clstr_ContamsSep.fasta
+
+# indexing genome for bowtie2 mapper and subsequent genotyping
+samtools faidx PNmaster_bcgIn1sam_clstr_ContamsSep.fasta
+
+java -jar $PICARD CreateSequenceDictionary R=PNmaster_bcgIn1sam_clstr_ContamsSep.fasta  O=PNmaster_bcgIn1sam_clstr_ContamsSep.dict
+
+####################################################
+###### To calculate spp relative abundances #########
+####################################################
+
+#make sure your read files are located within their own directories for rapid read processing
+
+organize.sh list
+
+# Now, re-process raw reads, this time removing PCR duplicates (this now matters for quantitative accuracy)
+trim2bRAD_1barcode_dedup.pl input=$NAME".fastq"
+
+#require q20 over 100% of the read - note that for individual studies you may want to examine a range of quality thresholds to identify highest quality data that retains majority of the reads
+cat $NAME".tr0" | fastq_quality_filter -q 20 -p 100 > $NAME".trim"
+
+#again, remove any reads matching sequencing adaptors
+bbduk.sh in=$NAME".trim" ref=/project/ckenkel_26/RefSeqs/adaptors.fasta k=12 overwrite=true stats=stats.txt out=$NAME".clean"
+
+#then map reads back to reference using default parameters with the --very-sensitive flag
+bowtie2 --no-unal --very-sensitive -x /project/ckenkel_26/RefSeqs/PseudoNitzsch_2bRADrefs/PNmaster_bcgIn1sam_clstr_ContamsSep.fasta -U $NAME".clean" -S $NAME".sam"
+
+#for calculating spp abundances, need to remove @SQ lines (but these are needed later to call SNPs for pop gen pipeline)
+egrep -v "@SQ" $NAME".sam" >$NAME".noSQ.sam"
+
+#submit this as batch job to create individual counts files for all samples
+#NOTE that SppName file must be modified to include the ID of your sequencing machine (=first value before the : in the sam file lines)
+TagCount.sh $NAME".noSQ.sam" /project/ckenkel_26/RefSeqs/PseudoNitzsch_2bRADrefs/SppName > $NAME".sam.counts"
+
+#once job script is created use batch.sh to submit
+batch.sh job.sh sams map
+
+#then compile final counts for all libraries to determine species relative abundance 
+
+CombineExpression.pl */*sam.counts > Counts.tab
+
+#do a bit of reformatting to tidy up the header
+cat Counts.tab | sed 's/.sam.counts//g' > AllCounts_NatSamLibs_q20_MAPQ23_globalWithContams_21May21.txt
+
+#then transpose (note this can also be done in excel)
+awk -f transpose.awk AllCounts_NatSamLibs_q20_MAPQ23_globalWithContams_21May21.txt > tAllCounts_NatSamLibs_q20_MAPQ23_globalWithContams_21May21.txt
+
+#### Record some filtering stats
+
+for i in `cat ./list`; do grep -c '@D00156' $i\/$i.fastq; done #for raw read tally
+
+for i in `cat ./list`; do cat $i\/Fin*.out | grep 'total' | cut -d':' -f 3 | cut -d';' -f 1; done #for good reads post dedup
+
+for i in `cat ./list`; do cat $i\/F*.out | grep 'total' | cut -d':' -f 4; done #for dup reads post dedup
+
+for i in `cat ./sams`; do cat $i\/stats.txt | grep 'Total' | cut -f2; done #for reads post QF
+
+for i in `cat ./sams`; do cat $i\/map*.err | grep 'Result' | cut -f2 | cut -d' ' -f1; done #for reads post Adap filt
+
+for i in `cat ./sams`; do cat $i\/map*.err | grep 'alignment' | cut -d' ' -f1; done #for percent mapped reads
+
+#move AllCounts file to R for statistical analysis
+
+####################################################
+###### To examine pop gen for dominant spp #########
+####################################################
+
+# First calculate coverage to determine if read depth is sufficient (min 75-80X coverage for pooled samples) to call genotypes from individual samples
+
+#check Ppun (spp with highest N reads mapping) to see if coverage is even close 
+
+for S in `ls P*/*.sam`; do NNAME=`echo $S | sed 's/\.sam/\.ppun\.sam/'`; echo $NNAME; egrep "Ppun" $S >$NNAME; done
+
+#Then filter mappings to exclude ambiguous matches (XS:i:0) 
+for S in `ls */*ppun.sam`; do NNAME=`echo $S | sed 's/\.sam/\.filt\.sam/'`; echo $NNAME; grep -v 'XS:i:0' $S >$NNAME; done
+
+#Retain only high quality reads (MAPQ>=23 => corresponds to 3 mismatches at Q20) and sort .bam
+
+for S in `ls */*ppun.filt.sam`; do NNAME=`echo $S | sed 's/\.filt\.sam//'`; echo $NNAME; samtools view -q 23 -bS $S | samtools sort - $NNAME; done
+
+
+# need BED file defining the start and end of each tag 
+
+cat PNmaster_bcgIn1sam_clstr_ContamsSep.fasta | grep 'Ppun' | cut -d' ' -f1 | sed 's/>P/P/g' | sed 's/_F/_F\t0\t35/g' | sed 's/_R/_R\t0\t35/g' > Ppun.bed
+
+# now use bedtools to generate coverage data for HQ mapped reads (submit as batch job)
+
+bedtools coverage -hist -a /project/ckenkel_26/RefSeqs/PseudoNitzsch_2bRADrefs/Ppun.bed -b $NAME".ppun.bam" > $NAME".ppun.cov.hist"
+
+# now superficially, how many tags have at least 70x coverage? 
+
+for S in `ls P*/*.hist`; do grep 'Ppun' $S | awk -F '\t' '$4 > 70' | wc -l; done 
+
+#not many. Rather than calling SNPs in individual samples, pool by year to increase coverage and compare low vs high DA years 
+
+#######################################
+#first, concatenate individual samples by year
+
+cat P1/P1.clean P2/P2.clean P3/P3.clean P4/P4.clean P5/P5.clean P6/P6.clean P7/P7.clean P8/P8.clean P9/P9.clean P10/P10.clean P11/P11.clean P12/P12.clean > year2015.clean
+
+cat P31/P31.clean P33/P33.clean P35/P35.clean P37/P37.clean P39/P39.clean P32/P32.clean P34/P34.clean P36/P36.clean P38/P38.clean > year2018.clean
+
+cat P13/P13.clean P25/P25.clean P26/P26.clean P27/P27.clean P28/P28.clean P29/P29.clean P14/P14.clean P15/P15.clean P17/P17.clean P18/P18.clean P19/P19.clean P20/P20.clean P21/P21.clean P22/P22.clean P23/P23.clean P24/P24.clean > year2017.clean
+
+cat P57/P57.clean P51/P51.clean P52/P52.clean P45/P45.clean P47/P47.clean P46/P46.clean P41/P41.clean P42/P42.clean P43/P43.clean P53/P53.clean P54/P54.clean P55/P55.clean P56/P56.clean P44/P44.clean P48/P48.clean P49/P49.clean P50/P50.clean P40/P40.clean > year2019.clean
+
+#then re-map
+bowtie2 --no-unal --very-sensitive -x /project/ckenkel_26/RefSeqs/PseudoNitzsch_2bRADrefs/PNmaster_bcgIn1sam_clstr_ContamsSep.fasta -U $NAME".clean" -S $NAME".sam"
+
+batch.sh job.sh yearList map
+
+# (now paring down sam files for focal taxa)
+
+for S in `ls year*/*[5-9].sam`; do NNAME=`echo $S | sed 's/\.sam/\.psub\.sam/'`; echo $NNAME; egrep "Psub" $S >$NNAME; done
+
+#Then filter mappings to exclude ambiguous matches (XS:i:0) 
+for S in `ls year*/*.p*.sam`; do NNAME=`echo $S | sed 's/\.sam/\.filt\.sam/'`; echo $NNAME; grep -v 'XS:i:0' $S >$NNAME; done
+
+#Retain only high quality reads (MAPQ>=23 => corresponds to 3 mismatches at Q20) and sort .bam
+
+for S in `ls year*/*.filt.sam`; do NNAME=`echo $S | sed 's/\.filt\.sam//'`; echo $NNAME; samtools view -q 23 -bS $S | samtools sort - $NNAME; done
+
+#then create synchronized mpileup file for popoolation analysis
+
+samtools mpileup -B year2015/year2015.paus.bam year2017/year2017.paus.bam year2018/year2018.paus.bam year2019/year2019.paus.bam > Paus.mpileup  
+
+samtools mpileup -B year2015/year2015.ppun.bam year2017/year2017.ppun.bam year2018/year2018.ppun.bam year2019/year2019.ppun.bam > Ppun.mpileup  
+
+samtools mpileup -B year2015/year2015.psub.bam year2017/year2017.psub.bam year2018/year2018.psub.bam year2019/year2019.psub.bam > Psub.mpileup  
+
+java -ea -Xmx7g -jar /project/ckenkel_26/software/popoolation2_1201/mpileup2sync.jar --input Paus.mpileup --output Paus.sync --fastq-type sanger --min-qual 20 --threads 8
+
+java -ea -Xmx7g -jar /project/ckenkel_26/software/popoolation2_1201/mpileup2sync.jar --input Ppun.mpileup --output Ppun.sync --fastq-type sanger --min-qual 20 --threads 8
+
+java -ea -Xmx7g -jar /project/ckenkel_26/software/popoolation2_1201/mpileup2sync.jar --input Psub.mpileup --output Psub.sync --fastq-type sanger --min-qual 20 --threads 8 
+
+#then calculate allele frequency differences. set max coverage to be 10x the number of samples per pop
+
+cmh-test.pl --input Psub.sync --output Psub.cmh --min-count 12 --min-coverage 50 --max-coverage 200 --population 1-2,3-4
+
+#The allele frequencies are in the format A:T:C:G:N:del
+
+
+
