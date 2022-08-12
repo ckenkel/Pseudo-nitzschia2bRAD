@@ -1,41 +1,17 @@
-#devtools::install_github("baptiste/egg")
-devtools::install_github("road2stat/ggsci")
 
-library(lme4)
-library(adegenet)
+### Analyses and plot functions below run in R version 4.2.1 ###
 library(ggplot2)
-library(car)
-library(multcomp)
-library(gtools)
-library(plyr)
-library(quantreg)
-library(calibrate)
-library(MASS)
-library(AICcmodavg)
-library(e1071)
-library(nlme)
-library(MCMCglmm)
-library(labdsv)
-library(vegan)
-library(plotrix)
-library(pgirmess)
-library(gridExtra)
-library(egg)
-library(scales)
-library(vegan)
 library(MCMC.OTU)
-library(ggfortify)
-library(cluster)
-library(labdsv)
 library(wesanderson)
 library(tidyverse)
-library(IRanges)
 library(RColorBrewer)
-library(ggsci)
+library(ggpubr)
+
+#install.packages(c("lme4","ggpubr","adegenet","ggplot2","car","multcomp","gtools","plyr","quantreg","calibrate","MASS","AICcmodavg","e1071","nlme","MCMCglmm","labdsv","vegan","plotrix","pgirmess","gridExtra","MCMC.OTU","scales","ggfortify","cluster","wesanderson","tidyverse","IRanges","RColorBrewer","ggsci","cowplot"),repos="https://cran.microsoft.com/")
 
 #############################
 
-setwd("") #location of input files - fill in here
+setwd("") #location of input files - fill in path here
 
 #######################
 #First, analysis of contaminants from blast match
@@ -81,16 +57,6 @@ geom_text(aes(label = paste(round(Ntags / sum(Ntags) * 100, 1), "%"), x=1.3),
             position = position_stack(vjust = 0.5))
 
 
-spp<-tab[tab$Species=="PdelOther",2:3] #change to appropriate spp or subset
-
-pie<-ggplot(spp,aes(x="",y=Ntags,fill=Category))+
-geom_bar(width=1,stat="identity")+
-coord_polar("y",start=0)
-
-pie+scale_fill_brewer(palette="Purples")+blank_theme+ #change color theme
-theme(axis.text.x=element_blank()) +
-  geom_text(aes(label = paste(Ntags)),
-            position = position_stack(vjust = 0.5))
             
 ############## 
 #######################
@@ -107,13 +73,17 @@ fpH<-fp[fp$nHQreads>1000,] #remove samples with less than 1000 HQ reads remainin
 
 str(fpH)
 summary(fpH)
+fpH$MixBinary=factor(fpH$MixBinary,levels=c("single","pool"))
 
-pd <- position_dodge(.2)
+pd <- position_dodge(.3)
 p2<-ggplot(fpH,aes(factor(MixBinary),FPR_relToHQMapReads))+
 	geom_boxplot(outlier.shape=NA, notch=FALSE)+
 	geom_point(aes(colour=Mix.type),position=pd)+
 	labs(y="FPR relative to mapped reads",x="Mix Category")+
 	ylab(NULL)+
+	annotate(geom = "text",x=1,y=0.02,label="0.04%",color="black",size=3)+
+	annotate(geom = "text",x=1.5,y=0.019,label="**",color="black",size=7)+
+	annotate(geom = "text",x=2,y=0.02,label="0.68%",color="black",size=3)+
 	theme_classic()+scale_color_discrete(name="Mix Ratio")
 
 p1<-ggplot(fpH,aes(nHQreads,FPR_relToHQMapReads))+
@@ -121,7 +91,8 @@ p1<-ggplot(fpH,aes(nHQreads,FPR_relToHQMapReads))+
 	labs(y="FPR relative to mapped reads",x="Read Depth")+
 	theme_classic()
 
-ggarrange(p1,p2,ncol=2,labels=c('a','b'),label.args=list(gp=grid::gpar(fint=4,cex=1.2)))
+ggarrange(p1,p2,ncol=2,labels=c('a','b'),hjust=-0.1,vjust=1) #plot twice if first time fails
+
 
 #is FPrate related to read depth?
 summary(lm(FPR_relToHQMapReads~nHQreads,fpH)) #no
@@ -135,6 +106,7 @@ summary(pure)
 
 t.test(FPR_relToHQMapReads~MixBinary,fpH) #yes, significantly higher in pool
 
+pd <- position_dodge(.2)
 p1<-ggplot(fpH,aes(factor(MixBinary),FPR_Paus))+
 	geom_boxplot(outlier.shape=16, notch=FALSE)+
 	geom_point(aes(colour=Mix.type),position=pd)+
@@ -195,16 +167,16 @@ p6<-ggplot(fpH,aes(factor(MixBinary),FPR_Psub))+
 	scale_y_continuous(limits=c(0,0.04))+scale_color_discrete(name="Mix Ratio")
 
 
-ggarrange(p1,p2,p3,p4,p5,p6,ncol=6,labels=c('a','b','c','d','e','f'),label.args=list(gp=grid::gpar(fint=4,cex=1.2)))
+ggarrange(p1,p2,p3,p4,p5,p6,ncol=6,labels=c('a','b','c','d','e','f'))
 
 #is FPrate significantly higher in pools vs pures BY FOCAL SPP?
 
-t.test(FPR_Paus~MixBinary,alternative="greater",fpH) #trend, p=0.09
-t.test(FPR_Pdel~MixBinary,alternative="greater",fpH) #yes, p=3.959e-11
-t.test(FPR_Pmul~MixBinary,alternative="greater",fpH) #yes, p=0.008 
-t.test(FPR_Pmstri~MixBinary,alternative="greater",fpH) #yes, p=0.004
-t.test(FPR_Ppun~MixBinary,alternative="greater",fpH) #yes, p=0.005
-t.test(FPR_Psub~MixBinary,alternative="greater",fpH) #trend, p=0.09
+t.test(FPR_Paus~MixBinary,alternative="less",fpH) #trend, p=0.09
+t.test(FPR_Pdel~MixBinary,alternative="less",fpH) #yes, p=3.959e-11
+t.test(FPR_Pmul~MixBinary,alternative="less",fpH) #yes, p=0.008 
+t.test(FPR_Pmstri~MixBinary,alternative="less",fpH) #yes, p=0.004
+t.test(FPR_Ppun~MixBinary,alternative="less",fpH) #yes, p=0.005
+t.test(FPR_Psub~MixBinary,alternative="less",fpH) #trend, p=0.09
 
 
 ################################################
@@ -222,7 +194,7 @@ p1<-ggplot(accH2,aes(x=ExpPercOfPNCommunity,y=ObsPercOfPNcommunity,color=FocalSp
 	geom_point(aes(colour=FocalSpp))+
 	#geom_jitter(position = position_jitter(width=.01)) +
 	labs(y="Observed",x="Expected")+
-	geom_abline(intercept = 0, slope = 1, linetype=2,size=0.75,colour="grey60") +
+	geom_abline(intercept=0,slope=1, linetype=2,size=0.75,colour="grey60") +
 	geom_smooth(method=lm,   # Add linear regression lines
                 se=FALSE,
                 fullrange=FALSE)+
@@ -234,7 +206,7 @@ p1<-ggplot(accH2,aes(x=ExpPercOfPNCommunity,y=ObsPercOfPNcommunity,color=FocalSp
 
 #what is overall accuracy?
 
-summary(lm(ObsPercOfPNcommunity~ExpPercOfPNCommunity,accH)) #yes
+summary(lm(ObsPercOfPNcommunity~ExpPercOfPNCommunity,accH)) 
 
 #Is accuracy a function of focal spp?
 	
@@ -262,25 +234,32 @@ summary(lm(ObsPercOfPNcommunity~ExpPercOfPNCommunity+FocalSpp,accH)) #yes
 # Multiple R-squared:   0.96,	Adjusted R-squared:  0.9579 
 # F-statistic: 456.1 on 4 and 76 DF,  p-value: < 2.2e-16
 
-spp<-subset(accH,FocalSpp=="Ppun")
-summary(lm(ObsPercOfPNcommunity~ExpPercOfPNCommunity,spp))
+spp<-subset(accH,FocalSpp=="Ppun") #to get individual spp models change FocalSpp
+summary(lm(ObsPercOfPNcommunity~ExpPercOfPNCommunity,spp)) 
 
+#now, convert Expected Percent of Community to factor for stratifying subsequent plots
+
+accH$ExpPercOfPNCommFac=factor(accH$ExpPercOfPNCommunity)
+
+pd <- position_dodge(.3)
 p2<-ggplot(accH,aes(FocalSpp,Accuracy))+
 	geom_boxplot(outlier.shape=16, notch=FALSE)+
-	geom_point(aes(colour=Mix.type),position=pd)+
+	geom_point(aes(colour=Mix.type,pch=ExpPercOfPNCommFac),position=pd)+
+	scale_shape_manual(values=c(3,4,8,17,18,19,15,0,1,2,5,6,12,14,11))+
 	labs(y="Accuracy",x="Focal Species")+
 	#ylab(NULL)+
-	theme_classic()+scale_color_discrete(name="Mix Ratio")
+	theme_classic()+scale_color_discrete(name="Mix Ratio")+theme(legend.position="none")
 
 p3<-ggplot(accH,aes(Mix.type,Accuracy))+
 	geom_boxplot(outlier.shape=16, notch=FALSE)+
-	geom_point(aes(colour=FocalSpp),position=pd)+
+	geom_point(aes(colour=FocalSpp,pch=ExpPercOfPNCommFac),position=pd)+
+	scale_shape_manual(values=c(3,4,8,17,18,19,15,0,1,2,5,6,12,14,11))+
 	labs(y="Accuracy",x="Mix Ratio")+
 	#ylab(NULL)+
 	theme_classic()+scale_color_manual(
     values=c("#FC8D62","#FFD92F","#66C2A5","#8DA0CB"),
     name="Focal Sp.",
-    labels=c("Paus","Pdel","Ppun","Psub"))
+    labels=c("Paus","Pdel","Ppun","Psub"))+theme(legend.position="none")
 
 #Is accuracy a function of focal species, strain (culture), or mix type?
 summary(aov(Accuracy~FocalSpp,accH)) #no
@@ -300,15 +279,16 @@ ggplot(accH,aes(FocalStrain,Accuracy))+
 
 p4<-ggplot(accH,aes(FocalStrain,Accuracy))+
 	geom_boxplot(outlier.shape=16, notch=FALSE)+
-	geom_point(aes(colour=Mix.type),position=pd)+
+	geom_point(aes(colour=Mix.type,pch=ExpPercOfPNCommFac),position=pd)+
+	scale_shape_manual(values=c(3,4,8,17,18,19,15,0,1,2,5,6,12,14,11))+
 	labs(y="Accuracy",x="Focal Culture")+
 	#ylab(NULL)+
 #	scale_colour_hue(l=50) +
-	theme_classic()+scale_color_discrete(name="Mix Ratio")
+	theme_classic()+scale_color_discrete(name="Mix Ratio")+theme(legend.position="none")
 	
-ggarrange(p1,p2,ncol=2,labels=c('a','b'),label.args=list(gp=grid::gpar(fint=4,cex=1.2)))
-ggarrange(p3,ncol=1,labels=c('c'),label.args=list(gp=grid::gpar(fint=4,cex=1.2)))
-ggarrange(p4,ncol=1,labels=c('d'),label.args=list(gp=grid::gpar(fint=4,cex=1.2)))
+ggarrange(p1,p2,ncol=2,labels=c('a','b'))
+ggarrange(p3,ncol=1,labels=c('c'))
+ggarrange(p4,ncol=1,labels=c('d'))
 
 
 
@@ -413,7 +393,7 @@ p4<-ggplot(year,aes(x=Week,y=count,fill = factor(otu))) +
 #    scale_fill_manual(values=c(wes_palette(name = "Darjeeling1")))+#FFD92F
         
 
-ggarrange(p1,p2,p3,p5,p4,ncol=1,labels=c('d','h','l','p','t'),label.args=list(gp=grid::gpar(fint=4,cex=1)))
+ggarrange(p1,p2,p3,p5,p4,ncol=1,labels=c('d','h','l','p','t'))
 
 #################################
 #IS DA correlated with the relative abundance of Paustralis?
@@ -495,7 +475,7 @@ p9<-ggplot(year,aes(x=Week,y=count,fill = factor(otu))) +
     	  axis.text.y=element_blank(),
     	  axis.ticks.y=element_blank())
 
-ggarrange(p6,p7,p8,p9,ncol=2,labels=c('a','b','c','d'),label.args=list(gp=grid::gpar(fint=4,cex=1)))
+ggarrange(p6,p7,p8,p9,ncol=2,labels=c('a','b','c','d'))
 
 ### now for correlations with 2bRAD data
 
